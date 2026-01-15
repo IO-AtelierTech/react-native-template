@@ -17,38 +17,56 @@ default:
     @just --list
 
 # ─────────────────────────────────────────────────────────────
-# Development
+# Metro Bundler
 # ─────────────────────────────────────────────────────────────
 
-# Start Expo development server
+# Start Metro dev server (foreground)
 dev:
     npx expo start
 
-# Start with cache cleared
+# Start Metro with cache cleared
 dev-clean:
     npx expo start --clear
 
-# Start in tunnel mode (for remote devices)
+# Start Metro in tunnel mode (for remote devices)
 dev-tunnel:
     npx expo start --tunnel
 
+# Start Metro in background
+metro-bg:
+    @echo "Starting Metro bundler in background..."
+    npx expo start --port 8081 > /tmp/metro.log 2>&1 &
+    @echo "Metro logs: /tmp/metro.log"
+    @sleep 5
+    @curl -s http://localhost:8081/status > /dev/null && echo "✓ Metro started!" || echo "⏳ Metro may still be starting..."
+
+# Stop Metro bundler
+metro-stop:
+    @echo "Stopping Metro bundler..."
+    -@pkill -f "expo start" 2>/dev/null
+    @echo "Metro stopped."
+
+# View Metro logs (live)
+metro-logs:
+    @tail -f /tmp/metro.log
+
 # ─────────────────────────────────────────────────────────────
-# Build
+# Native Builds
 # ─────────────────────────────────────────────────────────────
 
-# Run on Android (Waydroid compatible)
-android:
+# Build and run on Android
+run-android:
     npx expo run:android
 
-# Run on iOS simulator
-ios:
+# Build and run on iOS simulator
+run-ios:
     npx expo run:ios
 
-# Prebuild native projects
+# Generate native projects
 prebuild:
     npx expo prebuild
 
-# Prebuild with clean
+# Regenerate native projects (clean)
 prebuild-clean:
     npx expo prebuild --clean
 
@@ -56,17 +74,8 @@ prebuild-clean:
 # Code Quality
 # ─────────────────────────────────────────────────────────────
 
-# Run all tests
-test:
-    npm test
-
-# Run tests in watch mode
-test-watch:
-    npm run test:watch
-
-# Run tests with coverage
-test-coverage:
-    npm run test:coverage
+# Run all checks (lint + format + typecheck + test)
+check: lint format-check typecheck test
 
 # Run ESLint
 lint:
@@ -88,18 +97,31 @@ format:
 typecheck:
     npm run typecheck
 
-# Run all checks (lint + format + typecheck + test)
-check: lint format-check typecheck test
+# Fix all auto-fixable issues
+fix: lint-fix format
+
+# ─────────────────────────────────────────────────────────────
+# Testing
+# ─────────────────────────────────────────────────────────────
+
+# Run all tests
+test:
+    npm test
+
+# Run tests in watch mode
+test-watch:
+    npm run test:watch
+
+# Run tests with coverage
+test-coverage:
+    npm run test:coverage
 
 # Run CI checks
 ci:
     npm run ci
 
-# Fix all auto-fixable issues
-fix: lint-fix format
-
 # ─────────────────────────────────────────────────────────────
-# Database (Docker)
+# Database (Docker + Drizzle)
 # ─────────────────────────────────────────────────────────────
 
 # Start PostgreSQL database
@@ -122,10 +144,6 @@ db-shell:
 db-reset:
     docker compose down -v && docker compose up -d postgres
 
-# ─────────────────────────────────────────────────────────────
-# Drizzle ORM
-# ─────────────────────────────────────────────────────────────
-
 # Generate migration from schema changes
 db-generate:
     npm run db:generate
@@ -143,75 +161,75 @@ db-studio:
     npm run db:studio
 
 # ─────────────────────────────────────────────────────────────
-# EAS Build (Cloud Builds)
+# EAS Cloud Builds
 # ─────────────────────────────────────────────────────────────
 
-# Development build for Android
+# Development build - Android
 eas-dev-android:
     eas build --profile development --platform android
 
-# Development build for iOS
+# Development build - iOS
 eas-dev-ios:
     eas build --profile development --platform ios
 
-# Preview build for Android (internal distribution)
+# Development build - All platforms
+eas-dev:
+    eas build --profile development --platform all
+
+# Preview build - Android
 eas-preview-android:
     eas build --profile preview --platform android
 
-# Preview build for iOS (internal distribution)
+# Preview build - iOS
 eas-preview-ios:
     eas build --profile preview --platform ios
 
-# Production build for Android
+# Production build - Android
 eas-prod-android:
     eas build --profile production --platform android
 
-# Production build for iOS
+# Production build - iOS
 eas-prod-ios:
     eas build --profile production --platform ios
 
-# Build both platforms (development)
-eas-dev-all:
-    eas build --profile development --platform all
-
-# Build both platforms (production)
-eas-prod-all:
+# Production build - All platforms
+eas-prod:
     eas build --profile production --platform all
 
 # ─────────────────────────────────────────────────────────────
-# Dependencies
+# Dependencies & Cleanup
 # ─────────────────────────────────────────────────────────────
 
 # Install dependencies
 install:
     yarn install
 
-# Clean install
-clean-install:
+# Clean install (remove node_modules first)
+install-clean:
     rm -rf node_modules && yarn install
 
-# ─────────────────────────────────────────────────────────────
-# Utilities
-# ─────────────────────────────────────────────────────────────
-
-# Clear Metro cache
-clear-cache:
-    npx expo start --clear
-
-# Deep clean (all caches)
-deep-clean:
+# Clean build caches
+clean:
     rm -rf node_modules/.cache
     rm -rf android/.gradle 2>/dev/null || true
     rm -rf android/app/build 2>/dev/null || true
-    @echo "Caches cleared. Run 'just install' to reinstall."
+    rm -rf .expo 2>/dev/null || true
+    @echo "Caches cleared."
 
 # Show project info
 info:
     npx expo-env-info
 
 # ─────────────────────────────────────────────────────────────
-# Waydroid Management (Linux Android Emulator)
+# Waydroid (Linux Android Emulator)
 # ─────────────────────────────────────────────────────────────
+
+# Full Waydroid setup (start + connect + ports)
+waydroid-setup: waydroid-start
+    @sleep 3
+    @just adb-connect
+    @sleep 1
+    @just adb-ports
 
 # Start Waydroid container session
 waydroid-start:
@@ -239,20 +257,9 @@ waydroid-stop:
 waydroid-status:
     @waydroid status
 
-# Full Waydroid setup (start + connect + ports)
-waydroid-setup: waydroid-start
-    @sleep 3
-    @just adb-connect
-    @sleep 1
-    @just adb-ports
-
 # ─────────────────────────────────────────────────────────────
-# ADB / Device Management
+# ADB / Device Connection
 # ─────────────────────────────────────────────────────────────
-
-# List connected devices (including Waydroid)
-devices:
-    adb devices
 
 # Connect ADB to Waydroid
 adb-connect:
@@ -282,7 +289,7 @@ adb-ports:
     adb -s "$DEVICE" reverse tcp:3000 tcp:3000
     echo "  ✓ Port 3000 (API server)"
     echo ""
-    echo "Port forwarding complete! App can now reach localhost services."
+    echo "Port forwarding complete!"
 
 # Restart ADB server (fixes connection issues)
 adb-restart:
@@ -291,8 +298,12 @@ adb-restart:
     adb start-server
     @echo "ADB restarted. Run 'just adb-connect' to reconnect."
 
+# List connected devices
+adb-devices:
+    adb devices
+
 # ─────────────────────────────────────────────────────────────
-# App Management
+# App Control (on device)
 # ─────────────────────────────────────────────────────────────
 
 # Launch app on device
@@ -306,19 +317,7 @@ app-launch:
     echo "Launching app..."
     adb -s "$DEVICE" shell am start -n {{APP_PKG}}/.MainActivity
 
-# Clear app data (fixes corrupted state, login issues)
-app-clear:
-    #!/usr/bin/env bash
-    DEVICE=$(adb devices | grep -oP '[\d.]+:5555' | head -1)
-    if [ -z "$DEVICE" ]; then
-        echo "No device connected. Run: just adb-connect"
-        exit 1
-    fi
-    echo "Clearing app data..."
-    adb -s "$DEVICE" shell pm clear {{APP_PKG}}
-    echo "App data cleared. Run 'just app-launch' to restart."
-
-# Force stop and restart app (reload with fresh state)
+# Restart app (force stop + launch)
 app-restart:
     #!/usr/bin/env bash
     DEVICE=$(adb devices | grep -oP '[\d.]+:5555' | head -1)
@@ -332,6 +331,18 @@ app-restart:
     adb -s "$DEVICE" shell am start -n {{APP_PKG}}/.MainActivity
     echo "App restarted!"
 
+# Clear app data (fixes state/login issues)
+app-clear:
+    #!/usr/bin/env bash
+    DEVICE=$(adb devices | grep -oP '[\d.]+:5555' | head -1)
+    if [ -z "$DEVICE" ]; then
+        echo "No device connected. Run: just adb-connect"
+        exit 1
+    fi
+    echo "Clearing app data..."
+    adb -s "$DEVICE" shell pm clear {{APP_PKG}}
+    echo "App data cleared. Run 'just app-launch' to restart."
+
 # Install APK from path
 app-install APK_PATH:
     #!/usr/bin/env bash
@@ -344,7 +355,7 @@ app-install APK_PATH:
     adb -s "$DEVICE" install "{{APK_PATH}}"
 
 # Take a screenshot from device
-screenshot:
+app-screenshot:
     #!/usr/bin/env bash
     DEVICE=$(adb devices | grep -oP '[\d.]+:5555' | head -1)
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -353,42 +364,8 @@ screenshot:
     echo "Screenshot saved to $FILEPATH"
 
 # ─────────────────────────────────────────────────────────────
-# Background Services & Status
+# Status & Troubleshooting
 # ─────────────────────────────────────────────────────────────
-
-# Start Metro bundler in background
-dev-bg:
-    @echo "Starting Metro bundler in background..."
-    npx expo start --port 8081 > /tmp/metro.log 2>&1 &
-    @echo "Metro logs: /tmp/metro.log"
-    @sleep 5
-    @curl -s http://localhost:8081/status > /dev/null && echo "✓ Metro started!" || echo "⏳ Metro may still be starting..."
-
-# Stop all background services
-dev-stop:
-    @echo "Stopping development services..."
-    -@pkill -f "expo start" 2>/dev/null
-    @echo "Services stopped."
-
-# Kill ALL processes on dev ports (nuclear option)
-kill-all:
-    #!/usr/bin/env bash
-    echo "Killing all processes on development ports..."
-    pkill -f "expo start" 2>/dev/null || true
-    pkill -f "metro" 2>/dev/null || true
-    fuser -k 8081/tcp 2>/dev/null || true
-    fuser -k 3000/tcp 2>/dev/null || true
-    sleep 1
-    echo ""
-    echo "Port status:"
-    echo "  8081 (Metro): $(lsof -ti:8081 >/dev/null 2>&1 && echo 'IN USE' || echo 'free')"
-    echo "  3000 (API):   $(lsof -ti:3000 >/dev/null 2>&1 && echo 'IN USE' || echo 'free')"
-    echo ""
-    echo "Ready to restart services."
-
-# View Metro logs (live)
-metro-logs:
-    @tail -f /tmp/metro.log
 
 # Check all service statuses
 status:
@@ -420,3 +397,19 @@ status:
         echo "✗ ADB:                Not connected"
     fi
     echo ""
+
+# Kill ALL processes on dev ports (nuclear option)
+kill-ports:
+    #!/usr/bin/env bash
+    echo "Killing all processes on development ports..."
+    pkill -f "expo start" 2>/dev/null || true
+    pkill -f "metro" 2>/dev/null || true
+    fuser -k 8081/tcp 2>/dev/null || true
+    fuser -k 3000/tcp 2>/dev/null || true
+    sleep 1
+    echo ""
+    echo "Port status:"
+    echo "  8081 (Metro): $(lsof -ti:8081 >/dev/null 2>&1 && echo 'IN USE' || echo 'free')"
+    echo "  3000 (API):   $(lsof -ti:3000 >/dev/null 2>&1 && echo 'IN USE' || echo 'free')"
+    echo ""
+    echo "Ready to restart services."

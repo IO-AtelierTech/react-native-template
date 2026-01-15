@@ -17,13 +17,13 @@ This is a React Native + Expo SDK 54 template with TypeScript, NativeWind (Tailw
 Use the **Justfile** for all development commands:
 
 ```bash
-just dev          # Start Expo dev server
-just android      # Build and run on Android device/emulator
-just ios          # Build and run on iOS simulator
+just dev          # Start Metro dev server (foreground)
+just run-android  # Build and run on Android device/emulator
+just run-ios      # Build and run on iOS simulator
 just check        # Run lint, format check, typecheck, and tests
 just format       # Fix formatting issues
 just test         # Run tests
-just clean        # Clean build artifacts and caches
+just clean        # Clean build caches
 ```
 
 ## Key Files
@@ -61,14 +61,14 @@ export const items = pgTable('items', {
 });
 ```
 
-Run migrations with: `just migrate`
+Run migrations with: `just db-migrate`
 
 ## Testing with Waydroid (Linux)
 For testing on Linux without a physical device:
 
 ```bash
 just waydroid-setup   # Start Waydroid + connect ADB + port forwarding
-just dev-bg           # Start Metro in background
+just metro-bg         # Start Metro in background
 just app-launch       # Launch the app
 just status           # Check all services
 ```
@@ -77,8 +77,8 @@ Other useful commands:
 ```bash
 just app-restart      # Force restart app
 just app-clear        # Clear app data (fixes login/state issues)
-just screenshot       # Take device screenshot to /tmp/
-just kill-all         # Kill all dev processes (nuclear option)
+just app-screenshot   # Take device screenshot to /tmp/
+just kill-ports       # Kill all dev processes (nuclear option)
 ```
 
 ## EAS Build (Production)
