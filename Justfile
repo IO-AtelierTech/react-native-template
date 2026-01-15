@@ -210,17 +210,90 @@ info:
     npx expo-env-info
 
 # ─────────────────────────────────────────────────────────────
-# Waydroid / Android Device (Linux Android development)
+# Waydroid Management (Linux Android Emulator)
+# ─────────────────────────────────────────────────────────────
+
+# Start Waydroid container session
+waydroid-start:
+    #!/usr/bin/env bash
+    echo "Starting Waydroid session..."
+    if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+        echo "Waydroid already running"
+    else
+        waydroid session start &
+        sleep 5
+        if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+            echo "✓ Waydroid started"
+        else
+            echo "⏳ Waydroid still starting..."
+            sleep 5
+        fi
+    fi
+
+# Stop Waydroid session
+waydroid-stop:
+    @echo "Stopping Waydroid session..."
+    waydroid session stop
+
+# Check Waydroid status
+waydroid-status:
+    @waydroid status
+
+# Full Waydroid setup (start + connect + ports)
+waydroid-setup: waydroid-start
+    @sleep 3
+    @just adb-connect
+    @sleep 1
+    @just adb-ports
+
+# ─────────────────────────────────────────────────────────────
+# ADB / Device Management
 # ─────────────────────────────────────────────────────────────
 
 # List connected devices (including Waydroid)
 devices:
     adb devices
 
-# Set up ADB port forwarding for Waydroid
+# Connect ADB to Waydroid
+adb-connect:
+    #!/usr/bin/env bash
+    echo "Connecting ADB to Waydroid..."
+    WAYDROID_IP=$(waydroid status 2>/dev/null | grep -oP 'IP address:\s*\K[\d.]+' || echo "192.168.240.112")
+    if [ -z "$WAYDROID_IP" ] || [ "$WAYDROID_IP" = "192.168.240.112" ]; then
+        if ! waydroid status &>/dev/null; then
+            echo "Warning: Waydroid may not be running. Start it first with: just waydroid-start"
+        fi
+        WAYDROID_IP="192.168.240.112"
+    fi
+    adb connect "$WAYDROID_IP:5555"
+    echo "Connected to $WAYDROID_IP:5555"
+
+# Set up ADB reverse port forwarding
 adb-ports:
-    adb reverse tcp:8081 tcp:8081
-    adb reverse tcp:3000 tcp:3000
+    #!/usr/bin/env bash
+    echo "Setting up ADB reverse port forwarding..."
+    DEVICE=$(adb devices | grep -oP '[\d.]+:5555' | head -1)
+    if [ -z "$DEVICE" ]; then
+        echo "No device connected. Run: just adb-connect"
+        exit 1
+    fi
+    adb -s "$DEVICE" reverse tcp:8081 tcp:8081
+    echo "  ✓ Port 8081 (Metro bundler)"
+    adb -s "$DEVICE" reverse tcp:3000 tcp:3000
+    echo "  ✓ Port 3000 (API server)"
+    echo ""
+    echo "Port forwarding complete! App can now reach localhost services."
+
+# Restart ADB server (fixes connection issues)
+adb-restart:
+    @echo "Restarting ADB server..."
+    adb kill-server
+    adb start-server
+    @echo "ADB restarted. Run 'just adb-connect' to reconnect."
+
+# ─────────────────────────────────────────────────────────────
+# App Management
+# ─────────────────────────────────────────────────────────────
 
 # Launch app on device
 app-launch:
@@ -269,3 +342,81 @@ app-install APK_PATH:
     fi
     echo "Installing APK..."
     adb -s "$DEVICE" install "{{APK_PATH}}"
+
+# Take a screenshot from device
+screenshot:
+    #!/usr/bin/env bash
+    DEVICE=$(adb devices | grep -oP '[\d.]+:5555' | head -1)
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    FILEPATH="/tmp/screenshot_$TIMESTAMP.png"
+    adb -s "$DEVICE" exec-out screencap -p > "$FILEPATH"
+    echo "Screenshot saved to $FILEPATH"
+
+# ─────────────────────────────────────────────────────────────
+# Background Services & Status
+# ─────────────────────────────────────────────────────────────
+
+# Start Metro bundler in background
+dev-bg:
+    @echo "Starting Metro bundler in background..."
+    npx expo start --port 8081 > /tmp/metro.log 2>&1 &
+    @echo "Metro logs: /tmp/metro.log"
+    @sleep 5
+    @curl -s http://localhost:8081/status > /dev/null && echo "✓ Metro started!" || echo "⏳ Metro may still be starting..."
+
+# Stop all background services
+dev-stop:
+    @echo "Stopping development services..."
+    -@pkill -f "expo start" 2>/dev/null
+    @echo "Services stopped."
+
+# Kill ALL processes on dev ports (nuclear option)
+kill-all:
+    #!/usr/bin/env bash
+    echo "Killing all processes on development ports..."
+    pkill -f "expo start" 2>/dev/null || true
+    pkill -f "metro" 2>/dev/null || true
+    fuser -k 8081/tcp 2>/dev/null || true
+    fuser -k 3000/tcp 2>/dev/null || true
+    sleep 1
+    echo ""
+    echo "Port status:"
+    echo "  8081 (Metro): $(lsof -ti:8081 >/dev/null 2>&1 && echo 'IN USE' || echo 'free')"
+    echo "  3000 (API):   $(lsof -ti:3000 >/dev/null 2>&1 && echo 'IN USE' || echo 'free')"
+    echo ""
+    echo "Ready to restart services."
+
+# View Metro logs (live)
+metro-logs:
+    @tail -f /tmp/metro.log
+
+# Check all service statuses
+status:
+    #!/usr/bin/env bash
+    echo "=== Service Status ==="
+    echo ""
+    # Metro
+    if curl -s http://localhost:8081/status > /dev/null 2>&1; then
+        echo "✓ Metro (8081):       Running"
+    else
+        echo "✗ Metro (8081):       Not running"
+    fi
+    # Waydroid
+    if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+        echo "✓ Waydroid:           Running"
+    else
+        echo "✗ Waydroid:           Not running"
+    fi
+    # ADB
+    DEVICE=$(adb devices 2>/dev/null | grep -oP '[\d.]+:5555' | head -1)
+    if [ -n "$DEVICE" ]; then
+        echo "✓ ADB:                Connected ($DEVICE)"
+        if adb -s "$DEVICE" reverse --list 2>/dev/null | grep -q "8081"; then
+            echo "✓ Port Forwarding:    Configured"
+        else
+            echo "⚠ Port Forwarding:    Not configured (run: just adb-ports)"
+        fi
+    else
+        echo "✗ ADB:                Not connected"
+    fi
+    echo ""
