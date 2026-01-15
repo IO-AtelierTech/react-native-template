@@ -1,9 +1,11 @@
 # React Native Template - Claude Code Instructions
 
 ## Project Overview
+
 This is a React Native + Expo SDK 54 template with TypeScript, NativeWind (Tailwind CSS), Drizzle ORM, and best practices for mobile development.
 
 ## Tech Stack
+
 - **Framework**: React Native 0.81 + Expo SDK 54
 - **Language**: TypeScript (strict mode)
 - **Routing**: Expo Router (file-based routing in `src/app/`)
@@ -13,20 +15,37 @@ This is a React Native + Expo SDK 54 template with TypeScript, NativeWind (Tailw
 - **Testing**: Jest + React Testing Library
 - **Architecture**: React Native New Architecture enabled (required for Worklets/Reanimated)
 
-## Development Workflow
-Use the **Justfile** for all development commands:
+## Justfile Commands
+
+All development is done through the Justfile. Run `just` to see all commands.
+
+### Most Used Commands
 
 ```bash
-just dev          # Start Metro dev server (foreground)
-just run-android  # Build and run on Android device/emulator
-just run-ios      # Build and run on iOS simulator
-just check        # Run lint, format check, typecheck, and tests
-just format       # Fix formatting issues
-just test         # Run tests
-just clean        # Clean build caches
+just dev              # Start Metro dev server
+just check            # Run all quality checks (lint, format, typecheck, test)
+just run-android      # Build and run on Android
+just run-ios          # Build and run on iOS
 ```
 
+### Command Naming Conventions
+
+Commands follow consistent prefixes:
+
+| Prefix      | Purpose                        |
+| ----------- | ------------------------------ |
+| `dev-*`     | Metro foreground variants      |
+| `metro-*`   | Metro background/control       |
+| `run-*`     | Native builds                  |
+| `db-*`      | Database operations            |
+| `adb-*`     | Device connection              |
+| `app-*`     | App control on device          |
+| `waydroid-*`| Waydroid session management    |
+| `eas-*`     | EAS cloud builds               |
+| `test-*`    | Testing variants               |
+
 ## Key Files
+
 - `src/app/` - Expo Router screens (file-based routing)
 - `src/components/` - Reusable components
 - `src/db/` - Drizzle ORM client and schemas
@@ -36,7 +55,9 @@ just clean        # Clean build caches
 - `app.json` - Expo configuration
 
 ## Styling with NativeWind
+
 Use Tailwind classes directly in components:
+
 ```tsx
 <View className="flex-1 items-center justify-center bg-white">
   <Text className="text-2xl font-bold text-gray-900">Hello</Text>
@@ -44,13 +65,17 @@ Use Tailwind classes directly in components:
 ```
 
 Use `cn()` utility for conditional classes:
+
 ```tsx
 import { cn } from '@/utils/cn';
+
 <View className={cn("p-4", isActive && "bg-blue-500")} />
 ```
 
 ## Database (Drizzle ORM)
+
 Define schemas in `src/db/schema/`:
+
 ```typescript
 import { pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
 
@@ -61,9 +86,18 @@ export const items = pgTable('items', {
 });
 ```
 
-Run migrations with: `just db-migrate`
+Database commands:
+
+```bash
+just db-up            # Start PostgreSQL container
+just db-generate      # Generate migrations from schema changes
+just db-migrate       # Apply migrations
+just db-push          # Push schema directly (dev only)
+just db-studio        # Open Drizzle Studio GUI
+```
 
 ## Testing with Waydroid (Linux)
+
 For testing on Linux without a physical device:
 
 ```bash
@@ -73,7 +107,8 @@ just app-launch       # Launch the app
 just status           # Check all services
 ```
 
-Other useful commands:
+App control commands:
+
 ```bash
 just app-restart      # Force restart app
 just app-clear        # Clear app data (fixes login/state issues)
@@ -82,10 +117,27 @@ just kill-ports       # Kill all dev processes (nuclear option)
 ```
 
 ## EAS Build (Production)
-For production builds, see README.md for EAS setup instructions.
+
+```bash
+# Development builds
+just eas-dev-android
+just eas-dev-ios
+
+# Preview builds (internal distribution)
+just eas-preview-android
+just eas-preview-ios
+
+# Production builds
+just eas-prod-android
+just eas-prod-ios
+```
+
+See README.md for full EAS setup instructions.
 
 ## Important Notes
+
 - Always run `just check` before committing
 - The template uses Yarn Berry v4 with `node_modules` linker
 - New Architecture is enabled in `android/gradle.properties` (required for Worklets)
 - Keep dependencies updated to match Expo SDK version expectations
+- App package name is configured in Justfile as `APP_PKG` variable
