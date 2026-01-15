@@ -65,9 +65,21 @@ Run migrations with: `just migrate`
 
 ## Testing with Waydroid (Linux)
 For testing on Linux without a physical device:
-1. Start Expo: `just dev`
-2. Set up ADB: `adb reverse tcp:8081 tcp:8081`
-3. Launch app: `adb shell am start -n com.template.app/.MainActivity`
+
+```bash
+just waydroid-setup   # Start Waydroid + connect ADB + port forwarding
+just dev-bg           # Start Metro in background
+just app-launch       # Launch the app
+just status           # Check all services
+```
+
+Other useful commands:
+```bash
+just app-restart      # Force restart app
+just app-clear        # Clear app data (fixes login/state issues)
+just screenshot       # Take device screenshot to /tmp/
+just kill-all         # Kill all dev processes (nuclear option)
+```
 
 ## EAS Build (Production)
 For production builds, see README.md for EAS setup instructions.
